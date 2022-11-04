@@ -31,15 +31,16 @@ var context = canvas.getContext("2d");
 var W = canvas.width  = window.innerWidth-6;
 var H = canvas.height = window.innerHeight-50;
 
-
+// url to hit, objects, callback???
 function sendJSONXMLHTTPRequest(url, objects, callback) {
     var xhr = new XMLHttpRequest();
+    
     xhr.onreadystatechange = function () {
         if (xhr.readyState==4) {
             try {
                 if (xhr.status==200) {
-                    //XXX: parse some JSON from the request!
-                    //XXX: Pass the data to the callback!
+                    data = JSON.parse(xhr.response) // parse some JSON from the request!
+                    callback(data) // Pass the data to the callback!
                 }
             } 
             catch(e) {
@@ -48,11 +49,17 @@ function sendJSONXMLHTTPRequest(url, objects, callback) {
         }
     };
     //XXX: POST to a URL
+    xhr.open('POST', url, true);
     //XXX: set the mimetype and the accept headers!
     // Remember to use application/json !
+    //Gilles Quenot, John, Nov3, https://stackoverflow.com/questions/39519246/make-xmlhttprequest-post-using-json
+    //Nov 3, https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/overrideMimeType
+    xhr.overrideMimeType("application/json");
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("Content-Type", "application/json")
+    xhr.send(JSON.stringify(objects));
+
 }
-
-
 world = {};
 
 //XXX: TODO Make this prettier!
@@ -62,10 +69,20 @@ function drawCircle(context,entity) {
         lineWidth = 3;
         var x = entity["x"];
         var y = entity["y"];
+        //Raymond Zhou, https://stackoverflow.com/questions/16494262/how-to-draw-a-circle-with-centered-fadeing-out-gradients-with-html5-canvas
+        innerRadius = ((entity["radius"])?entity["radius"]:50)/2;
+        outerRadius = ((entity["radius"])?entity["radius"]:50)+10;
+
+        var grd = createRadialGradient(x, y, innerRadius, x, y, outerRadius);
+        grd.addColorStop(0, entity["colour"]);
+        grd.addColorStop(1, "white");
         //moveTo(x,y);
-        fillStyle = entity["colour"];
-        strokeStyle = fillStyle;
+        
+        strokeStyle = grd;
         arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
+
+        fillStyle = grd;
+        fill();
         stroke();                                
     }
 }
@@ -133,12 +150,14 @@ function getPosition(e) {
 	}
 }
 
-
+// updating when theres only a reason to update aka adding something new
+// community wiki, Nov3, https://stackoverflow.com/questions/610406/javascript-equivalent-to-printf-string-format
 function addEntity(entity, data) {
     world[entity] = data;
-    drawNextFrame(); // (but should we?)
+    //drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just  modified!
-
+    request = `http://${host}/entity/${entity}`;
+    sendJSONXMLHTTPRequest(url = request, objects=data, () => {});
 }
 
 var counter = 0;
@@ -246,28 +265,32 @@ mouse = (function() {
 
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
+//Marius, Nov3, https://stackoverflow.com/questions/2173229/how-do-i-write-a-rgb-color-value-in-javascript
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    addEntityWithoutName({'x':x,'y':y,'colour':"rgb(255, 165, 122)"});
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    addEntityWithoutName({'x':x,'y':y,'colour':"rgb(100, 164, 174)"});
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
+    addEntityWithoutName({'x':x,'y':y,'colour':"rgb(0, 101, 160)",
                           'radius':10});
 });
 
 
 function update() {
     //XXX: TODO Get the world from the webservice using a XMLHTTPRequest
+    request = `http://${host}/world`;
+    sendJSONXMLHTTPRequest(url = request, data = null, (value) => {world = value});
     drawFrame();
+    drawNextFrame();
 }
 
 // 30 frames per second
 setInterval( update, 1000/30.0);
-
+// we only update if there is something new drawn
 
 
     </script>
